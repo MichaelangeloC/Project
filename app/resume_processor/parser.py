@@ -1,7 +1,10 @@
 import os
 import re
+import io
 from datetime import datetime
 import textract
+import pdfplumber
+import docx
 from app.utils.logger import setup_logger
 from app.utils.config import load_config
 
@@ -54,7 +57,7 @@ class ResumeParser:
     
     def _extract_text(self, resume_path):
         """
-        Extract text from a resume file
+        Extract text from a resume file using format-specific methods
         
         Args:
             resume_path (str): Path to the resume file
@@ -63,17 +66,129 @@ class ResumeParser:
             str: Extracted text
         """
         try:
-            # Extract text from PDF or Word document
-            text = textract.process(resume_path).decode('utf-8')
+            # Get file extension
+            file_extension = os.path.splitext(resume_path)[1].lower()
             
-            # Clean up the text
-            text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with single space
-            text = text.strip()
-            
-            return text
+            # Extract text based on file type
+            if file_extension == '.pdf':
+                logger.info(f"Extracting text from PDF file: {resume_path}")
+                return self._extract_text_from_pdf(resume_path)
+                
+            elif file_extension == '.docx':
+                logger.info(f"Extracting text from DOCX file: {resume_path}")
+                return self._extract_text_from_docx(resume_path)
+                
+            elif file_extension == '.txt':
+                logger.info(f"Extracting text from TXT file: {resume_path}")
+                return self._extract_text_from_txt(resume_path)
+                
+            else:
+                # Fallback to textract for other file types
+                logger.info(f"Using textract to extract text from {file_extension} file: {resume_path}")
+                text = textract.process(resume_path).decode('utf-8')
+                text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with single space
+                return text.strip()
             
         except Exception as e:
             logger.error(f"Error extracting text from resume: {str(e)}", exc_info=True)
+            raise
+            
+    def _extract_text_from_pdf(self, pdf_path):
+        """
+        Extract text from a PDF file using pdfplumber
+        
+        Args:
+            pdf_path (str): Path to the PDF file
+            
+        Returns:
+            str: Extracted text
+        """
+        text = ""
+        
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text() or ""
+                    text += page_text + " "
+                    
+            # Clean up the text
+            text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with single space
+            return text.strip()
+            
+        except Exception as e:
+            logger.error(f"Error extracting text from PDF: {str(e)}", exc_info=True)
+            raise
+            
+    def _extract_text_from_docx(self, docx_path):
+        """
+        Extract text from a DOCX file using python-docx
+        
+        Args:
+            docx_path (str): Path to the DOCX file
+            
+        Returns:
+            str: Extracted text
+        """
+        text = ""
+        
+        try:
+            doc = docx.Document(docx_path)
+            
+            # Extract text from paragraphs
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + " "
+                
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        text += cell.text + " "
+                        
+            # Clean up the text
+            text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with single space
+            return text.strip()
+            
+        except Exception as e:
+            logger.error(f"Error extracting text from DOCX: {str(e)}", exc_info=True)
+            raise
+            
+    def _extract_text_from_txt(self, txt_path):
+        """
+        Extract text from a TXT file
+        
+        Args:
+            txt_path (str): Path to the TXT file
+            
+        Returns:
+            str: Extracted text
+        """
+        try:
+            with open(txt_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+                
+            # Clean up the text
+            text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with single space
+            return text.strip()
+            
+        except UnicodeDecodeError:
+            # Try different encodings if UTF-8 fails
+            encodings = ['latin-1', 'iso-8859-1', 'cp1252']
+            for encoding in encodings:
+                try:
+                    with open(txt_path, 'r', encoding=encoding) as f:
+                        text = f.read()
+                    
+                    # Clean up the text
+                    text = re.sub(r'\s+', ' ', text)  # Replace multiple whitespace with single space
+                    return text.strip()
+                except UnicodeDecodeError:
+                    continue
+                    
+            # If all encodings fail, raise exception
+            raise
+            
+        except Exception as e:
+            logger.error(f"Error extracting text from TXT: {str(e)}", exc_info=True)
             raise
     
     def _extract_contact_info(self, text):

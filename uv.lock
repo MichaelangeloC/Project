@@ -956,6 +956,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pdfplumber"
+version = "0.5.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "chardet" },
+    { name = "pdfminer-six" },
+    { name = "pillow" },
+    { name = "pycrypto" },
+    { name = "unicodecsv" },
+    { name = "wand" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ed/e1/c833b2fc44e88e8a6cbb6186f2eac85ac5e6733252da02dcf7af7043d814/pdfplumber-0.5.3.tar.gz", hash = "sha256:48b318b5f3e618115ff34c492b7061665a1c4d35daae89605e20abe79f3d33b1", size = 14763 }
+
+[[package]]
 name = "pillow"
 version = "11.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1115,6 +1129,12 @@ wheels = [
 ]
 
 [[package]]
+name = "pycrypto"
+version = "2.6.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/db/645aa9af249f059cc3a368b118de33889219e0362141e75d4eaf6f80f163/pycrypto-2.6.1.tar.gz", hash = "sha256:f2ce1e989b272cfcb677616763e0a2e7ec659effa67a88aa92b3a65528f60a3c", size = 446240 }
+
+[[package]]
 name = "pycryptodome"
 version = "3.23.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1270,6 +1290,19 @@ wheels = [
 ]
 
 [[package]]
+name = "python-docx"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "lxml" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/e4/386c514c53684772885009c12b67a7edd526c15157778ac1b138bc75063e/python_docx-1.1.2.tar.gz", hash = "sha256:0cf1f22e95b9002addca7948e16f2cd7acdfd498047f1941ca5d293db7762efd", size = 5656581 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/3d/330d9efbdb816d3f60bf2ad92f05e1708e4a1b9abe80461ac3444c83f749/python_docx-1.1.2-py3-none-any.whl", hash = "sha256:08c20d6058916fb19853fcf080f7f42b6270d89eac9fa5f8c15f691c0017fabe", size = 244315 },
+]
+
+[[package]]
 name = "python-dotenv"
 version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1377,6 +1410,8 @@ dependencies = [
     { name = "google-generativeai" },
     { name = "openai" },
     { name = "pandas" },
+    { name = "pdfplumber" },
+    { name = "python-docx" },
     { name = "python-dotenv" },
     { name = "selenium" },
     { name = "streamlit" },
@@ -1390,6 +1425,8 @@ requires-dist = [
     { name = "google-generativeai", specifier = ">=0.8.5" },
     { name = "openai", specifier = ">=1.79.0" },
     { name = "pandas", specifier = ">=2.2.3" },
+    { name = "pdfplumber", specifier = ">=0.5.3" },
+    { name = "python-docx", specifier = ">=1.1.2" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "selenium", specifier = ">=4.32.0" },
     { name = "streamlit", specifier = ">=1.45.1" },
@@ -1765,6 +1802,12 @@ wheels = [
 ]
 
 [[package]]
+name = "unicodecsv"
+version = "0.14.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/a4/691ab63b17505a26096608cc309960b5a6bdf39e4ba1a793d5f9b1a53270/unicodecsv-0.14.1.tar.gz", hash = "sha256:018c08037d48649a0412063ff4eda26eaa81eff1546dbffa51fa5293276ff7fc", size = 10267 }
+
+[[package]]
 name = "uritemplate"
 version = "4.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1785,6 +1828,15 @@ wheels = [
 [package.optional-dependencies]
 socks = [
     { name = "pysocks" },
+]
+
+[[package]]
+name = "wand"
+version = "0.6.13"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/0b/005ab483df0bf48d65fe26cc1036ce222521ece3a84e55b501a4f966746c/Wand-0.6.13.tar.gz", hash = "sha256:f5013484eaf7a20eb22d1821aaefe60b50cc329722372b5f8565d46d4aaafcca", size = 11883700 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/d5/1bdd7c9662d5e9078e25ba0eb69bdb122859295746d40ab8dfef3a7b4d42/Wand-0.6.13-py2.py3-none-any.whl", hash = "sha256:e5dda0ac2204a40c29ef5c4cb310770c95d3d05c37b1379e69c94ea79d7d19c0", size = 143789 },
 ]
 
 [[package]]
