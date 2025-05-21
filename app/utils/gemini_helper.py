@@ -29,18 +29,18 @@ def generate_text(prompt, max_tokens=1500, return_json=False, max_retries=3):
     
     logger.info(f"Generating text with Gemini (return_json={return_json})")
     
+    # Configure the API key
+    genai.configure(api_key=api_key)
+    
     try:
-        # Configure Gemini
-        genai.configure(api_key=api_key)
-        
-        # Set up the generation parameters
-        generation_config = genai.GenerationConfig(
-            max_output_tokens=max_tokens,
-            temperature=0.7
-        )
+        # Create the generation config (using the appropriate method based on your version)
+        generation_config = {
+            "max_output_tokens": max_tokens,
+            "temperature": 0.7
+        }
         
         # Create the model
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel(model_name='gemini-pro')
         
         for attempt in range(max_retries):
             try:
@@ -59,8 +59,7 @@ def generate_text(prompt, max_tokens=1500, return_json=False, max_retries=3):
                 
                 # Generate content
                 response = model.generate_content(
-                    effective_prompt,
-                    generation_config=generation_config
+                    contents=effective_prompt
                 )
                 
                 # Extract the generated text

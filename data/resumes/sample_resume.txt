@@ -1,0 +1,78 @@
+JOHN SMITH
+123 Main Street, New York, NY 10001
+john.smith@email.com | (555) 123-4567 | linkedin.com/in/johnsmith
+
+PROFESSIONAL SUMMARY
+Experienced software engineer with 5+ years of expertise in full-stack development. Proficient in Python, JavaScript, and cloud technologies. Strong problem-solving abilities with a track record of delivering scalable applications and improving system performance. Passionate about creating user-friendly solutions that address complex business challenges.
+
+SKILLS
+• Programming Languages: Python, JavaScript, TypeScript, Java, SQL
+• Frameworks & Libraries: React, Node.js, Django, Flask, Express
+• Database Systems: PostgreSQL, MongoDB, MySQL, Redis
+• Cloud Services: AWS (EC2, S3, Lambda), Google Cloud Platform
+• DevOps: Docker, Kubernetes, CI/CD pipelines, Git
+• Other: REST APIs, GraphQL, Microservices, Test-Driven Development
+
+WORK EXPERIENCE
+
+Senior Software Engineer
+TechSolutions Inc., New York, NY
+March 2022 - Present
+• Led a team of 5 developers to redesign the company's flagship product, resulting in a 40% improvement in load times and 25% increase in user retention
+• Implemented microservices architecture using Node.js and Docker, improving system scalability and reducing deployment time by 60%
+• Developed and maintained RESTful APIs that process over 1 million requests per day
+• Collaborated with product managers and UX designers to implement new features based on user feedback
+• Mentored junior developers through code reviews and pair programming sessions
+
+Software Engineer
+DataSystems LLC, Boston, MA
+January 2020 - February 2022
+• Built and maintained a high-performance data processing pipeline using Python and AWS services
+• Optimized database queries, resulting in a 30% reduction in response times
+• Designed and implemented automated testing frameworks that increased code coverage from 65% to 92%
+• Contributed to the development of a mobile-responsive web application using React and Redux
+• Participated in Agile development processes, including daily stand-ups, sprint planning, and retrospectives
+
+Junior Developer
+StartupHub, San Francisco, CA
+June 2018 - December 2019
+• Contributed to front-end development using HTML, CSS, JavaScript, and React
+• Helped develop and maintain RESTful APIs using Node.js and Express
+• Fixed over 100 bugs and improved existing features based on user feedback
+• Participated in code reviews and collaborated with senior developers to improve code quality
+• Assisted in implementing new features for the company's web application
+
+EDUCATION
+Bachelor of Science in Computer Science
+New York University, New York, NY
+Graduated: May 2018
+• GPA: 3.8/4.0
+• Relevant Coursework: Data Structures, Algorithms, Database Systems, Software Engineering, Web Development
+
+PROJECTS
+E-commerce Platform (2022)
+• Developed a full-stack e-commerce application using the MERN stack (MongoDB, Express, React, Node.js)
+• Implemented features such as product search, shopping cart, payment processing, and user authentication
+• Utilized Redux for state management and JWT for secure authentication
+
+Weather Analysis Tool (2021)
+• Created a Python application for analyzing historical weather data and generating forecasts
+• Integrated with multiple weather APIs to collect and process real-time data
+• Implemented data visualization using Matplotlib and Plotly
+
+Portfolio Website (2020)
+• Designed and built a responsive portfolio website using React and styled-components
+• Implemented animations and transitions for enhanced user experience
+• Optimized for performance and SEO
+
+CERTIFICATIONS
+• AWS Certified Developer – Associate (2022)
+• MongoDB Certified Developer (2021)
+• Google Cloud Professional Developer (2020)
+
+LANGUAGES
+• English (Native)
+• Spanish (Intermediate)
+
+INTERESTS
+Machine Learning, Open Source Contributing, Hackathons, Hiking, Photography

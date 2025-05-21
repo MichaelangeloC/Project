@@ -9,6 +9,7 @@ from app.utils.logger import setup_logger
 from app.job_scanner.job_data import JobData
 from app.job_scanner.indeed import IndeedJobScanner
 from app.job_scanner.linkedin import LinkedInJobScanner
+from app.job_scanner.demo_jobs import DemoJobScanner
 from app.resume_processor.parser import ResumeParser
 from app.resume_processor.analyzer import ResumeAnalyzer
 from app.cover_letter_generator.generator import CoverLetterGenerator
@@ -45,17 +46,43 @@ def main():
     with st.sidebar:
         st.header("Configuration")
         
-        # Upload resume
-        uploaded_resume = st.file_uploader("Upload Resume (PDF)", type=['pdf'])
-        if uploaded_resume:
-            # Save the uploaded resume
-            resume_dir = os.path.join("data", "resumes")
-            os.makedirs(resume_dir, exist_ok=True)
-            resume_path = os.path.join(resume_dir, f"resume_{int(time.time())}.pdf")
-            with open(resume_path, "wb") as f:
-                f.write(uploaded_resume.getbuffer())
-            st.session_state.resume_path = resume_path
-            st.success(f"Resume saved: {resume_path}")
+        # Resume options
+        resume_option = st.radio(
+            "Resume Options",
+            ["Upload Your Resume", "Use Sample Resume"],
+            index=1  # Default to sample resume for easier testing
+        )
+        
+        if resume_option == "Upload Your Resume":
+            # Upload resume
+            uploaded_resume = st.file_uploader("Upload Resume (PDF/DOCX/TXT)", type=['pdf', 'docx', 'txt'])
+            if uploaded_resume:
+                # Save the uploaded resume
+                resume_dir = os.path.join("data", "resumes")
+                os.makedirs(resume_dir, exist_ok=True)
+                
+                # Get file extension
+                file_extension = os.path.splitext(uploaded_resume.name)[1]
+                resume_path = os.path.join(resume_dir, f"resume_{int(time.time())}{file_extension}")
+                
+                with open(resume_path, "wb") as f:
+                    f.write(uploaded_resume.getbuffer())
+                st.session_state.resume_path = resume_path
+                st.success(f"Resume saved: {resume_path}")
+        else:
+            # Use sample resume
+            sample_resume_path = os.path.join("data", "resumes", "sample_resume.txt")
+            if os.path.exists(sample_resume_path):
+                st.session_state.resume_path = sample_resume_path
+                st.success("Using sample resume for testing")
+                
+                # Display sample resume details
+                with st.expander("View Sample Resume Details"):
+                    with open(sample_resume_path, "r") as f:
+                        sample_content = f.read()
+                    st.text_area("Sample Resume", sample_content, height=200)
+            else:
+                st.error("Sample resume not found. Please upload your own resume.")
         
         # Job search parameters
         st.subheader("Job Search Parameters")
@@ -66,8 +93,8 @@ def main():
         # Job source selection
         job_sources = st.multiselect(
             "Job Sources", 
-            ["Indeed", "LinkedIn"],
-            default=["Indeed"]
+            ["Demo", "Indeed", "LinkedIn"],
+            default=["Demo"]
         )
         
         # Start job scanning
@@ -81,6 +108,8 @@ def main():
                     try:
                         # Initialize scanners based on selected sources
                         scanners = []
+                        if "Demo" in job_sources:
+                            scanners.append(DemoJobScanner())
                         if "Indeed" in job_sources:
                             scanners.append(IndeedJobScanner())
                         if "LinkedIn" in job_sources:
