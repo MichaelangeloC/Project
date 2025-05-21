@@ -1,5 +1,7 @@
 from app.job_scanner.indeed import IndeedJobScanner
 from app.job_scanner.linkedin import LinkedInJobScanner
+from app.job_scanner.demo_jobs import DemoJobScanner
+from app.job_scanner.filter import JobFilter
 from app.resume_processor.parser import ResumeParser
 from app.resume_processor.analyzer import ResumeAnalyzer
 from app.cover_letter_generator.generator import CoverLetterGenerator
@@ -87,29 +89,32 @@ def run_application_workflow(job_details, resume_path):
         logger.error(f"Error in application workflow: {str(e)}", exc_info=True)
         return {'success': False, 'error': str(e)}
 
-def scan_jobs(keywords, location, min_salary, sources=None):
+def scan_jobs(keywords, location, min_salary, sources=None, resume_path=None):
     """
-    Scans for jobs using the specified sources
+    Scans for jobs using the specified sources and applies programmatic filtering
     
     Args:
         keywords (str): Job search keywords
         location (str): Job location
         min_salary (int): Minimum salary
         sources (list): List of job sources to use
+        resume_path (str, optional): Path to resume file for filtering
         
     Returns:
-        list: Job postings found
+        dict: Dictionary containing all_jobs and filtered_jobs lists
     """
     logger.info(f"Starting job scan for '{keywords}' in '{location}'")
     
     if sources is None:
-        sources = ["Indeed", "LinkedIn"]
+        sources = ["Demo", "Indeed", "LinkedIn"]
     
     all_jobs = []
     
     try:
         # Initialize scanners based on selected sources
         scanners = []
+        if "Demo" in sources:
+            scanners.append(DemoJobScanner())
         if "Indeed" in sources:
             scanners.append(IndeedJobScanner())
         if "LinkedIn" in sources:
@@ -123,8 +128,54 @@ def scan_jobs(keywords, location, min_salary, sources=None):
             logger.info(f"Found {len(jobs)} jobs from {scanner.__class__.__name__}")
         
         logger.info(f"Total jobs found: {len(all_jobs)}")
-        return all_jobs
+        
+        # Apply programmatic filtering if a resume is provided
+        filtered_jobs = all_jobs
+        if resume_path:
+            filtered_jobs = filter_jobs_with_resume(all_jobs, resume_path)
+        
+        return {
+            'all_jobs': all_jobs,
+            'filtered_jobs': filtered_jobs
+        }
         
     except Exception as e:
         logger.error(f"Error scanning for jobs: {str(e)}", exc_info=True)
-        return []
+        return {
+            'all_jobs': [],
+            'filtered_jobs': []
+        }
+
+def filter_jobs_with_resume(jobs, resume_path):
+    """
+    Apply programmatic filtering to jobs using resume text
+    
+    Args:
+        jobs (list): List of job postings from scanners
+        resume_path (str): Path to the resume file
+        
+    Returns:
+        list: Filtered list of job postings
+    """
+    try:
+        # Parse resume
+        parser = ResumeParser()
+        resume_data = parser.parse(resume_path)
+        
+        # Get full resume text for keyword matching
+        resume_text = resume_data.get('raw_text', '')
+        
+        if not resume_text:
+            logger.warning("Unable to extract text from resume, skipping filtering")
+            return jobs
+        
+        # Apply programmatic filtering
+        job_filter = JobFilter()
+        filtered_jobs = job_filter.filter_jobs(jobs, resume_text)
+        
+        logger.info(f"Filtered {len(jobs)} jobs to {len(filtered_jobs)} relevant matches")
+        return filtered_jobs
+        
+    except Exception as e:
+        logger.error(f"Error during job filtering: {str(e)}", exc_info=True)
+        return jobs  # Return all jobs if filtering fails

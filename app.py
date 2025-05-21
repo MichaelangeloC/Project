@@ -106,28 +106,61 @@ def main():
                     st.session_state.scanning_in_progress = True
                     
                     try:
-                        # Initialize scanners based on selected sources
-                        scanners = []
-                        if "Demo" in job_sources:
-                            scanners.append(DemoJobScanner())
-                        if "Indeed" in job_sources:
-                            scanners.append(IndeedJobScanner())
-                        if "LinkedIn" in job_sources:
-                            scanners.append(LinkedInJobScanner())
+                        # Check if we have a resume path
+                        resume_path = st.session_state.get('resume_path')
                         
-                        # Scan for jobs
-                        new_jobs = []
-                        for scanner in scanners:
-                            jobs = scanner.scan(keywords, location, min_salary)
-                            new_jobs.extend(jobs)
+                        # Use our improved scan_jobs function from main.py with programmatic filtering
+                        from app.main import scan_jobs
+                        result = scan_jobs(
+                            keywords=keywords, 
+                            location=location, 
+                            min_salary=min_salary, 
+                            sources=job_sources, 
+                            resume_path=resume_path
+                        )
+                        
+                        all_jobs = result.get('all_jobs', [])
+                        filtered_jobs = result.get('filtered_jobs', [])
                         
                         # Create DataFrame and save to session state
-                        if new_jobs:
-                            jobs_df = pd.DataFrame(new_jobs)
-                            st.session_state.jobs = pd.concat([st.session_state.jobs, jobs_df], ignore_index=True)
+                        if all_jobs:
+                            # Create a DataFrame with all jobs
+                            all_jobs_df = pd.DataFrame(all_jobs)
+                            
+                            # Add filtering metadata
+                            if filtered_jobs:
+                                # Get URLs of filtered jobs
+                                filtered_urls = {job['url'] for job in filtered_jobs if 'url' in job}
+                                
+                                # Mark jobs that passed the filter
+                                all_jobs_df['passed_filter'] = all_jobs_df['url'].apply(
+                                    lambda x: x in filtered_urls if x else False
+                                )
+                                
+                                # Add filter match reasons where available
+                                all_jobs_df['filter_reasons'] = ""
+                                for i, job in all_jobs_df.iterrows():
+                                    if job['passed_filter']:
+                                        # Find the matching filtered job to get reasons
+                                        for filtered_job in filtered_jobs:
+                                            if filtered_job.get('url') == job['url']:
+                                                reasons = filtered_job.get('filter_match_reasons', [])
+                                                all_jobs_df.at[i, 'filter_reasons'] = ', '.join(reasons) if reasons else "Passed initial filter"
+                                                break
+                                    else:
+                                        all_jobs_df.at[i, 'filter_reasons'] = "Failed initial filter"
+                            
+                            # Update session state
+                            st.session_state.jobs = pd.concat([st.session_state.jobs, all_jobs_df], ignore_index=True)
+                            
                             # Drop duplicates based on job URL
                             st.session_state.jobs.drop_duplicates(subset=['url'], keep='first', inplace=True)
-                            st.success(f"Found {len(new_jobs)} new job postings!")
+                            
+                            # Show success message with filtering results
+                            if filtered_jobs:
+                                st.success(f"Found {len(all_jobs)} job postings! {len(filtered_jobs)} jobs passed initial resume-based filtering.")
+                            else:
+                                st.success(f"Found {len(all_jobs)} new job postings!")
                         else:
                             st.info("No new job postings found.")
                     except Exception as e:
@@ -179,11 +212,24 @@ def main():
             
             # Display jobs
             for idx, job in filtered_jobs.iterrows():
-                with st.expander(f"{job['title']} at {job['company']} - {job['location']}"):
+                # Check if job passed filter and add indicator
+                job_title_prefix = "✅ " if 'passed_filter' in job and job['passed_filter'] else ""
+                
+                with st.expander(f"{job_title_prefix}{job['title']} at {job['company']} - {job['location']}"):
                     st.write(f"**Source:** {job['source']}")
                     st.write(f"**Date Found:** {job['date_found']}")
                     st.write(f"**Status:** {job['status']}")
                     st.write(f"**Matching Score:** {job['matching_score']}")
+                    
+                    # Show filter information if available
+                    if 'passed_filter' in job:
+                        filter_status = "Passed initial filter" if job['passed_filter'] else "Failed initial filter"
+                        filter_color = "green" if job['passed_filter'] else "red"
+                        st.markdown(f"**Filter Status:** <span style='color:{filter_color}'>{filter_status}</span>", unsafe_allow_html=True)
+                        
+                        if 'filter_reasons' in job and job['filter_reasons']:
+                            st.write(f"**Filter Details:** {job['filter_reasons']}")
+                    
                     st.write(f"**Description:**")
                     st.write(job['description'][:500] + "..." if len(job['description']) > 500 else job['description'])
                     st.markdown(f"[View Job]({job['url']})")
