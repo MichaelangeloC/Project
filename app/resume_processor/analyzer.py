@@ -5,6 +5,7 @@ from app.utils.logger import setup_logger
 from app.utils.config import load_config
 from app.utils.ai_helper import generate_text
 from app.resume_processor.parser import ResumeParser
+from app.resume_processor.skill_extractor import SkillExtractor
 
 logger = setup_logger()
 config = load_config()
@@ -15,6 +16,7 @@ class ResumeAnalyzer:
     def __init__(self):
         """Initialize the resume analyzer"""
         self.parser = ResumeParser()
+        self.skill_extractor = SkillExtractor()
     
     def analyze(self, resume_data):
         """
@@ -393,29 +395,54 @@ class ResumeAnalyzer:
             skills = resume_data.get('skills', [])
             raw_text = resume_data.get('raw_text', '')
             
-            # Use AI to evaluate the match
+            # First use NLP-based skill extraction
+            logger.info("Using NLP-based skill extraction to match resume and job")
+            skill_analysis = self.skill_extractor.extract_and_compare(raw_text, job_description)
+            
+            # Get the skill comparison results
+            comparison = skill_analysis.get('comparison', {})
+            match_percentage = comparison.get('match_percentage', 0)
+            matching_skills = comparison.get('matching_skills', [])
+            missing_skills = comparison.get('missing_skills', [])
+            
+            # Create detailed categories breakdown
+            category_breakdown = {}
+            for category, data in comparison.get('categories', {}).items():
+                if data.get('matching') or data.get('missing'):
+                    category_breakdown[category] = {
+                        'match_percentage': data.get('match_percentage', 0),
+                        'matching': data.get('matching', []),
+                        'missing': data.get('missing', [])
+                    }
+            
+            # Use AI to complement the NLP analysis with qualitative insights
             match_prompt = f"""
             Evaluate how well this resume matches the job description.
             
             Resume:
-            {raw_text[:3000]}  # Limit text to prevent token overflow
+            {raw_text[:2000]}  # Reduced length to make room for NLP results
             
             Job Description:
-            {job_description[:1500]}
+            {job_description[:1000]}
+            
+            NLP Skill Analysis:
+            * Match Percentage: {match_percentage}%
+            * Matching Skills: {', '.join(matching_skills[:10])}
+            * Missing Skills: {', '.join(missing_skills[:10])}
             
             Please provide:
-            1. A matching score from 0-100
-            2. List of matching keywords found in both the resume and job description
-            3. List of missing keywords or skills that are in the job description but not in the resume
-            4. Brief explanation of the score
+            1. A qualitative assessment of the match (strengths and weaknesses)
+            2. Suggestions for how to better align the resume with this job
+            3. Brief explanation of overall fit
             
-            Format your response as JSON with the keys: "score", "matching_keywords", "missing_keywords", "explanation"
+            Format your response as JSON with the keys: "qualitative_assessment", "suggestions", "explanation"
             """
             
-            # Generate match evaluation using AI
-            match_evaluation = generate_text(match_prompt, return_json=True)
+            # Generate qualitative insights using AI
+            ai_insights = generate_text(match_prompt, return_json=True)
             
-            if match_evaluation:
+            # Combine NLP and AI analysis for comprehensive results
+            if ai_insights:
                 logger.info(f"Resume match evaluation completed with score: {match_evaluation.get('score', 0)}")
                 return {
                     'score': match_evaluation.get('score', 0),

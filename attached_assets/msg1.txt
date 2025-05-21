@@ -1,10 +1,10 @@
-Okay, thank you for addressing the pdfplumber issue and switching to PyPDF2 for PDF parsing. It's good to see the specialized file handling for PDF, DOCX, and TXT in place.
-Yes, now that the resume parsing has been made more robust, please proceed with implementing the programmatic filtering functionality (Point 2 from my previous set of priorities).
+Excellent work implementing the programmatic filtering functionality, including creating the JobFilter class and integrating it into the application flow. I also appreciate the UI update to show which jobs passed this filtering stage.
+Yes, now that the resume parsing and initial programmatic filtering are in place, please proceed with implementing the detailed NLP skill extraction functionality (Point 3 from my previous set of priorities).
 As a reminder, this involves:
- * Creating a function that takes the list of standardized job data objects and the parsed full resume text.
- * Filtering jobs based on:
-   * Keywords (simple matching of high-frequency resume terms against job description text).
-   * Pay Grade (comparison with TARGET_PAY_GRADE_MIN from config).
-   * Location (basic string comparison with TARGET_LOCATION from config).
- * This step should occur after scanning and before any detailed skill extraction or AI-driven matching.
-Please refer to section 2.5 of the 'Automated Job Application Development Plan.txt' for the detailed requirements of this initial filtering logic. Let me know if anything is unclear before you start.
+ * Focusing on app/resume_processor/analyzer.py (or creating a new SkillExtractor class if it makes more sense for code organization, as originally considered in the plan).
+ * Using spaCy or NLTK for:
+   * Text preprocessing (lowercase, remove punctuation, stop words, lemmatization) on both the full resume text and the full_job_description_text of the jobs that passed the initial programmatic filter.
+   * Skill identification using techniques like Part-of-Speech (POS) tagging, Named Entity Recognition (NER), and matching against a predefined skill list/ontology (you might need to create a basic version of this skill list for now).
+ * The primary output of this step should be a structured list of identified skills (e.g., a Python list or set of strings) for the resume and a similar list for each filtered job description. This will be crucial for more advanced matching later.
+Please refer to section 3.1 (NLP-Powered Skill Extraction) of the 'Automated Job Application Development Plan.txt' for detailed guidance on this task.
+Let me know if anything is unclear before you begin this next important step.
