@@ -33,54 +33,96 @@ class ResumeAnalyzer:
             skills = resume_data.get('skills', [])
             education = resume_data.get('education', [])
             experience = resume_data.get('experience', [])
+            contact_info = resume_data.get('contact_info', {})
             raw_text = resume_data.get('raw_text', '')
             
-            # Use AI to analyze the resume
+            # Use Google Gemini to analyze the resume
             analysis_prompt = f"""
-            Analyze this resume and provide constructive feedback:
+            Analyze this resume and provide detailed professional feedback:
             
             Resume Text:
             {raw_text[:3000]}  # Limit text to prevent token overflow
             
             Provide the following information:
-            1. Key skills detected (list 5-10 key skills)
-            2. Experience summary (brief 2-3 sentence summary of experience)
-            3. Education overview (brief summary)
-            4. Strengths (3-5 points)
-            5. Improvement suggestions (3-5 specific, actionable suggestions)
+            1. Key skills detected (list 8-12 key technical and soft skills)
+            2. Experience summary (brief 2-3 sentence summary of overall experience level and key domains)
+            3. Education overview (brief summary of educational background including degrees and institutions)
+            4. Strengths (4-6 points highlighting what makes this candidate strong)
+            5. Improvement suggestions (4-6 specific, actionable suggestions to make the resume more effective)
+            6. Industry fit (list 3-5 industries or job types this resume would be well suited for)
             
-            Format your response as JSON with the keys: "skills", "experience_summary", "education_summary", "strengths", "suggestions"
+            Format your response as JSON with the keys: "skills", "experience_summary", "education_summary", "strengths", "suggestions", "industry_fit"
             """
             
-            # Generate analysis using AI
-            ai_analysis = generate_text(analysis_prompt, return_json=True)
+            # Generate analysis using Google Gemini
+            api_key = os.environ.get('GOOGLE_GEMINI_API_KEY') or config.get('GOOGLE_GEMINI_API_KEY')
+            if api_key:
+                try:
+                    # Setup Gemini
+                    import google.generativeai as genai
+                    genai.configure(api_key=api_key)
+                    
+                    # Create the model
+                    model = genai.GenerativeModel('gemini-pro')
+                    
+                    # Generate content
+                    response = model.generate_content(analysis_prompt)
+                    response_text = response.text
+                    
+                    # Process the response text to extract JSON
+                    if "```json" in response_text:
+                        json_text = response_text.split("```json")[1].split("```")[0].strip()
+                    elif "```" in response_text:
+                        json_text = response_text.split("```")[1].strip()
+                    else:
+                        json_text = response_text
+                        
+                    # Parse the JSON response
+                    import json
+                    ai_analysis = json.loads(json_text)
+                    
+                    logger.info("Resume analysis completed successfully using Google Gemini")
+                    return {
+                        'skills': ai_analysis.get('skills', skills),
+                        'experience_summary': ai_analysis.get('experience_summary', ''),
+                        'education_summary': ai_analysis.get('education_summary', ''),
+                        'strengths': ai_analysis.get('strengths', []),
+                        'suggestions': ai_analysis.get('suggestions', []),
+                        'industry_fit': ai_analysis.get('industry_fit', []),
+                        'ai_powered': True
+                    }
+                except Exception as e:
+                    logger.error(f"Error using Google Gemini for resume analysis: {str(e)}")
+                    # Fall back to basic analysis if Gemini fails
             
-            if ai_analysis:
-                logger.info("Resume analysis completed successfully")
-                return {
-                    'skills': ai_analysis.get('skills', skills),
-                    'experience_summary': ai_analysis.get('experience_summary', ''),
-                    'education_summary': ai_analysis.get('education_summary', ''),
-                    'strengths': ai_analysis.get('strengths', []),
-                    'suggestions': ai_analysis.get('suggestions', [])
-                }
-            else:
-                logger.warning("AI analysis failed, returning basic analysis")
-                return {
-                    'skills': skills,
-                    'experience': [exp.get('title', '') for exp in experience],
-                    'education': [edu.get('degree', '') for edu in education],
-                    'suggestions': ['Improve skills section', 'Add more quantifiable achievements']
-                }
+            # If we reach here, either no API key is available or Gemini analysis failed
+            logger.warning("AI analysis unavailable, returning basic analysis")
+            return {
+                'skills': skills,
+                'experience_summary': ", ".join([exp.get('title', '') for exp in experience[:3]]),
+                'education_summary': ", ".join([edu.get('degree', '') for edu in education]),
+                'strengths': ['Technical expertise in ' + ", ".join(skills[:5])] if skills else [],
+                'suggestions': [
+                    'Add more quantifiable achievements',
+                    'Enhance skills section with relevant technologies',
+                    'Include more specific details about project impacts',
+                    'Ensure formatting is consistent and professional'
+                ],
+                'industry_fit': [],
+                'ai_powered': False
+            }
                 
         except Exception as e:
             logger.error(f"Error analyzing resume: {str(e)}", exc_info=True)
             # Return basic structure in case of error
             return {
                 'skills': [],
-                'experience': [],
-                'education': [],
-                'suggestions': []
+                'experience_summary': '',
+                'education_summary': '',
+                'strengths': [],
+                'suggestions': [],
+                'industry_fit': [],
+                'ai_powered': False
             }
     
     def tailor_resume(self, resume_path, job_description):
@@ -106,6 +148,12 @@ class ResumeAnalyzer:
             experience = resume_data.get('experience', [])
             education = resume_data.get('education', [])
             raw_text = resume_data.get('raw_text', '')
+            
+            # Extract the file extension
+            _, file_extension = os.path.splitext(resume_path)
+            
+            # Check if we have the Google Gemini API key
+            api_key = os.environ.get('GOOGLE_GEMINI_API_KEY') or config.get('GOOGLE_GEMINI_API_KEY')
             
             # Use AI to tailor resume
             tailor_prompt = f"""

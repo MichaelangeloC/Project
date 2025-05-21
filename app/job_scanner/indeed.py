@@ -8,6 +8,7 @@ import trafilatura
 from app.utils.logger import setup_logger
 from app.utils.config import load_config
 from app.job_scanner.job_data import JobData
+import google.generativeai as genai
 
 logger = setup_logger()
 config = load_config()
@@ -28,7 +29,21 @@ class IndeedJobScanner:
         }
         # Rate limiting parameters
         self.request_delay = 2  # Delay between requests in seconds
-        self.max_jobs = 50  # Maximum number of jobs to fetch
+        self.max_jobs = int(config.get('MAX_JOBS_PER_SCAN', 50))  # Maximum number of jobs to fetch
+        
+        # Set up AI for improved analysis
+        api_key = os.environ.get('GOOGLE_GEMINI_API_KEY') or config.get('GOOGLE_GEMINI_API_KEY')
+        if api_key:
+            try:
+                genai.configure(api_key=api_key)
+                self.ai_available = True
+                logger.info("Google Gemini API configured for job scanning")
+            except Exception as e:
+                logger.error(f"Error configuring Google Gemini API: {str(e)}")
+                self.ai_available = False
+        else:
+            self.ai_available = False
+            logger.warning("Google Gemini API key not available. Job scanning will use basic matching algorithms.")
     
     def scan(self, keywords, location, min_salary=0, max_pages=3):
         """
@@ -199,8 +214,15 @@ class IndeedJobScanner:
             int: Matching score (0-100)
         """
         try:
+            # If AI is available, use it for more sophisticated matching
+            if self.ai_available and len(description) > 100:
+                try:
+                    return self._calculate_ai_matching_score(title, description, keywords)
+                except Exception as e:
+                    logger.error(f"Error with AI matching, falling back to basic algorithm: {str(e)}")
+                    # Fall back to basic algorithm if AI fails
+            
             # Basic scoring algorithm - count keyword occurrences
-            # In a real app, this would use more sophisticated NLP
             keywords_list = keywords.lower().split()
             score = 0
             
@@ -218,14 +240,103 @@ class IndeedJobScanner:
                 # Cap the contribution from any single keyword
                 score += min(count * 3, 15)
             
+            # Look for terms that indicate seniority or experience requirements
+            experience_terms = {
+                "senior": -5,  # Negative if looking for junior positions
+                "lead": -5,
+                "principal": -10,
+                "manager": -5,
+                "director": -10,
+                "5+ years": -5,
+                "7+ years": -10,
+                "10+ years": -15,
+                "entry level": 10,  # Positive if looking for entry level
+                "junior": 10,
+                "associate": 5,
+                "intern": 5,
+                "1-2 years": 10,
+                "no experience": 15
+            }
+            
+            for term, value in experience_terms.items():
+                if term in description_lower:
+                    score += value
+            
             # Normalize to 0-100
-            score = min(score, 100)
+            score = max(0, min(score, 100))
             
             return score
             
         except Exception as e:
             logger.error(f"Error calculating matching score: {str(e)}", exc_info=True)
             return 50  # Default middle score
+    
+    def _calculate_ai_matching_score(self, title, description, keywords):
+        """
+        Use AI to calculate a more sophisticated matching score
+        
+        Args:
+            title (str): Job title
+            description (str): Job description
+            keywords (str): Job search keywords
+            
+        Returns:
+            int: Matching score (0-100)
+        """
+        try:
+            # Create a model instance
+            model = genai.GenerativeModel('gemini-pro')
+            
+            # Create the prompt for matching analysis
+            prompt = f"""
+            Analyze how well this job matches the search keywords.
+            
+            Job Title: {title}
+            
+            Job Description: 
+            {description[:1500]}  # Limit length to prevent token issues
+            
+            Search Keywords: {keywords}
+            
+            Please analyze how well this job matches the search keywords and provide:
+            1. A numerical score from 0-100 indicating the match quality
+            2. Brief reasoning for the score
+            
+            Respond only with a JSON object in this format:
+            {{
+                "score": 75,
+                "reasoning": "Brief explanation"
+            }}
+            """
+            
+            # Generate content
+            response = model.generate_content(prompt)
+            
+            # Try to extract JSON from response
+            response_text = response.text
+            
+            # Sometimes the response includes markdown code blocks
+            if "```json" in response_text:
+                json_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                json_text = response_text.split("```")[1].strip()
+            else:
+                json_text = response_text
+            
+            # Parse the JSON response
+            import json
+            result = json.loads(json_text)
+            
+            # Extract and return the score
+            score = int(result.get("score", 50))
+            logger.info(f"AI matching score for '{title}': {score} - {result.get('reasoning', 'No reasoning provided')}")
+            
+            return score
+            
+        except Exception as e:
+            logger.error(f"Error in AI matching: {str(e)}", exc_info=True)
+            # Fall back to a neutral score
+            return 50
     
     def _check_robots_txt(self):
         """
