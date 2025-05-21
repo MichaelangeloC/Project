@@ -30,8 +30,14 @@ def generate_text(prompt, max_tokens=1500, return_json=False, max_retries=3):
     logger.info(f"Generating text with Gemini (return_json={return_json})")
     
     try:
-        # Configure the Gemini client with API key
+        # Configure Gemini
         genai.configure(api_key=api_key)
+        
+        # Set up the generation parameters
+        generation_config = genai.GenerationConfig(
+            max_output_tokens=max_tokens,
+            temperature=0.7
+        )
         
         # Create the model
         model = genai.GenerativeModel('gemini-pro')
@@ -51,8 +57,11 @@ def generate_text(prompt, max_tokens=1500, return_json=False, max_retries=3):
                     The response should be able to be parsed directly by json.loads().
                     """
                 
-                # Make the API call
-                response = model.generate_content(effective_prompt)
+                # Generate content
+                response = model.generate_content(
+                    effective_prompt,
+                    generation_config=generation_config
+                )
                 
                 # Extract the generated text
                 generated_text = response.text
@@ -60,7 +69,15 @@ def generate_text(prompt, max_tokens=1500, return_json=False, max_retries=3):
                 # Parse JSON if requested
                 if return_json:
                     try:
-                        return json.loads(generated_text)
+                        # Clean the response - sometimes there are markdown code blocks
+                        if "```json" in generated_text:
+                            json_text = generated_text.split("```json")[1].split("```")[0].strip()
+                        elif "```" in generated_text:
+                            json_text = generated_text.split("```")[1].strip()
+                        else:
+                            json_text = generated_text
+                            
+                        return json.loads(json_text)
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse JSON response: {str(e)}")
                         logger.debug(f"Raw response: {generated_text}")

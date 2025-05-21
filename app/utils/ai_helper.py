@@ -1,23 +1,16 @@
 import os
 import json
 import time
+import google.generativeai as genai
 from app.utils.logger import setup_logger
 from app.utils.config import load_config
 
 logger = setup_logger()
 config = load_config()
 
-# Import OpenAI
-try:
-    from openai import OpenAI
-    openai_available = True
-except ImportError:
-    logger.warning("OpenAI package not available. Text generation will be limited.")
-    openai_available = False
-
-def generate_text(prompt, model="gpt-4o", max_tokens=1500, return_json=False, max_retries=3):
+def generate_text(prompt, model="gemini-pro", max_tokens=1500, return_json=False, max_retries=3):
     """
-    Generate text using AI model
+    Generate text using AI model (Google Gemini)
     
     Args:
         prompt (str): Text prompt for generation
@@ -29,61 +22,61 @@ def generate_text(prompt, model="gpt-4o", max_tokens=1500, return_json=False, ma
     Returns:
         str or dict: Generated text or parsed JSON
     """
-    # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
-    # do not change this unless explicitly requested by the user
-    
-    api_key = config.get('OPENAI_API_KEY') or config.get('AI_TEXT_GENERATION_API_KEY')
+    # Get API key from environment variables or config
+    api_key = os.environ.get('GOOGLE_GEMINI_API_KEY') or config.get('GOOGLE_GEMINI_API_KEY')
     
     if not api_key:
-        logger.warning("No AI API key found. Cannot generate text.")
-        return None
-    
-    if not openai_available:
-        logger.warning("OpenAI package not available. Cannot generate text.")
+        logger.warning("No Google Gemini API key found. Cannot generate text.")
         return None
     
     logger.info(f"Generating text with {model} (return_json={return_json})")
     
     try:
-        # Initialize OpenAI client
-        client = OpenAI(api_key=api_key)
+        # Configure the API
+        genai.configure(api_key=api_key)
+        
+        # Set up generation config
+        generation_config = genai.GenerationConfig(
+            max_output_tokens=max_tokens,
+            temperature=0.7
+        )
+        
+        # Create model
+        model = genai.GenerativeModel(model)
         
         for attempt in range(max_retries):
             try:
                 logger.debug(f"Generation attempt {attempt + 1}/{max_retries}")
                 
-                # Create messages for the API call
-                messages = [{"role": "user", "content": prompt}]
-                
-                # Add system message for JSON responses if needed
+                # Modify prompt for JSON if needed
+                effective_prompt = prompt
                 if return_json:
-                    messages.insert(0, {
-                        "role": "system",
-                        "content": "You are a helpful assistant that responds in valid JSON format. Your response should be properly formatted JSON that can be parsed."
-                    })
+                    effective_prompt = f"""
+                    {prompt}
+                    
+                    Important: Your response must be a properly formatted JSON object with no additional text, 
+                    explanations, or markdown formatting before or after the JSON. 
+                    The response should be able to be parsed directly by json.loads().
+                    """
                 
-                # Set up the API call arguments
-                kwargs = {
-                    "model": model,
-                    "messages": messages,
-                    "max_tokens": max_tokens,
-                    "temperature": 0.7,
-                }
-                
-                # Add response format for JSON if needed
-                if return_json:
-                    kwargs["response_format"] = {"type": "json_object"}
-                
-                # Make the API call
-                response = client.chat.completions.create(**kwargs)
+                # Generate content
+                response = model.generate_content(effective_prompt, generation_config=generation_config)
                 
                 # Extract the generated text
-                generated_text = response.choices[0].message.content
+                generated_text = response.text
                 
                 # Parse JSON if requested
                 if return_json:
                     try:
-                        return json.loads(generated_text)
+                        # Clean the response - sometimes there are markdown code blocks
+                        if "```json" in generated_text:
+                            json_text = generated_text.split("```json")[1].split("```")[0].strip()
+                        elif "```" in generated_text:
+                            json_text = generated_text.split("```")[1].strip()
+                        else:
+                            json_text = generated_text
+                            
+                        return json.loads(json_text)
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse JSON response: {str(e)}")
                         logger.debug(f"Raw response: {generated_text}")
