@@ -3,7 +3,7 @@ import re
 import io
 from datetime import datetime
 import textract
-import pdfplumber
+import PyPDF2
 import docx
 from app.utils.logger import setup_logger
 from app.utils.config import load_config
@@ -95,7 +95,7 @@ class ResumeParser:
             
     def _extract_text_from_pdf(self, pdf_path):
         """
-        Extract text from a PDF file using pdfplumber
+        Extract text from a PDF file using PyPDF2
         
         Args:
             pdf_path (str): Path to the PDF file
@@ -106,8 +106,12 @@ class ResumeParser:
         text = ""
         
         try:
-            with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                
+                # Extract text from each page
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
                     page_text = page.extract_text() or ""
                     text += page_text + " "
                     
