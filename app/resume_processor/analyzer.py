@@ -155,56 +155,226 @@ class ResumeAnalyzer:
             # Check if we have the Google Gemini API key
             api_key = os.environ.get('GOOGLE_GEMINI_API_KEY') or config.get('GOOGLE_GEMINI_API_KEY')
             
-            # Use AI to tailor resume
-            tailor_prompt = f"""
-            You are an expert resume writer. Tailor the following resume to better match the job description.
+            if api_key:
+                try:
+                    # Setup Gemini
+                    import google.generativeai as genai
+                    genai.configure(api_key=api_key)
+                    
+                    # Create the model
+                    model = genai.GenerativeModel('gemini-pro')
+                    
+                    # Create a highly structured prompt for resume tailoring
+                    tailor_prompt = f"""
+                    I need to tailor this resume to better match a specific job description.
+                    
+                    RESUME TEXT:
+                    {raw_text[:2500]}
+                    
+                    JOB DESCRIPTION:
+                    {job_description[:2500]}
+                    
+                    Please analyze the job description and tailor the resume content to highlight relevant skills and experience.
+                    Follow these specific instructions:
+                    
+                    1. Keep the same resume structure and sections (contact info, summary, education, etc.)
+                    2. Identify key requirements and skills from the job description
+                    3. Reword the professional summary/objective to align with the job
+                    4. Reorder skills to prioritize those mentioned in the job description
+                    5. Revise job experiences to emphasize relevant responsibilities and achievements
+                    6. Use terminology and keywords from the job description where authentic/honest
+                    7. Do NOT invent or fabricate any experience, skills, or qualifications
+                    8. Maintain a professional tone and formatting
+                    9. Ensure tailored content is factual based on the original resume
+                    
+                    Return the complete tailored resume text that I can save directly to a file.
+                    """
+                    
+                    # Generate tailored content
+                    response = model.generate_content(tailor_prompt)
+                    tailored_content = response.text
+                    
+                    # Clean up the content if needed
+                    if "```" in tailored_content:
+                        tailored_content = tailored_content.replace("```", "").strip()
+                        
+                    logger.info("Successfully generated tailored resume with Google Gemini")
+                    
+                except Exception as e:
+                    logger.error(f"Error using Google Gemini for resume tailoring: {str(e)}")
+                    # Create a basic tailored version if Gemini fails
+                    tailored_content = self._basic_resume_tailoring(resume_data, job_description)
+            else:
+                # Create a basic tailored version if no API key
+                logger.warning("Google Gemini API key not available for resume tailoring")
+                tailored_content = self._basic_resume_tailoring(resume_data, job_description)
             
-            Resume:
-            {raw_text[:3000]}  # Limit text to prevent token overflow
-            
-            Job Description:
-            {job_description[:1500]}
-            
-            Please provide specific recommendations on how to tailor this resume for this job:
-            1. Identify 5-8 keywords from the job description that should be emphasized
-            2. Suggest 3-5 skills to highlight based on the job requirements
-            3. Recommend how to reword 2-3 experience bullet points to better match the job
-            4. Any other tailoring suggestions
-            
-            Format your response as JSON with the keys: "keywords", "skills_to_highlight", "experience_rewrites", "other_suggestions"
-            """
-            
-            # Generate tailoring recommendations using AI
-            tailoring_recommendations = generate_text(tailor_prompt, return_json=True)
-            
-            if not tailoring_recommendations:
-                logger.warning("Failed to generate tailoring recommendations")
+            if not tailored_content:
+                logger.warning("Failed to generate tailored resume content")
                 return resume_path  # Return original resume if tailoring fails
             
-            # For demo purposes, we'll just log the tailoring recommendations
-            # In a real implementation, we would modify the resume document
-            logger.info("Generated tailoring recommendations")
+            # Create a timestamp for the new file
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
-            # Create directory for tailored resumes if it doesn't exist
-            tailored_dir = os.path.join("data", "tailored_resumes")
-            os.makedirs(tailored_dir, exist_ok=True)
+            # Create tailored resume filename using job keywords
+            # Extract first 3 words from job description for filename
+            job_words = job_description.split()[:3]
+            job_keyword = "_".join(job_words).replace("/", "_").replace("\\", "_").replace(":", "_")[:30]
             
-            # In a real implementation, this would modify the actual resume document
-            # For this implementation, we'll just return the original path
-            # and pretend we tailored it (since we can't easily modify PDF files)
+            # Create tailored resume path
+            tailored_resume_path = os.path.join(
+                "data/tailored_resumes",
+                f"tailored_resume_{job_keyword}_{timestamp}{file_extension}"
+            )
             
-            # Create a "tailored" version by copying the original
-            tailored_path = os.path.join(tailored_dir, f"tailored_{os.path.basename(resume_path)}")
-            with open(resume_path, "rb") as src, open(tailored_path, "wb") as dst:
-                dst.write(src.read())
+            # Make sure the directory exists
+            os.makedirs(os.path.dirname(tailored_resume_path), exist_ok=True)
             
-            logger.info(f"Resume tailored successfully: {tailored_path}")
-            return tailored_path
+            # Write the tailored content to a file
+            with open(tailored_resume_path, 'w') as file:
+                file.write(tailored_content)
+                
+            logger.info(f"Tailored resume saved to: {tailored_resume_path}")
+            return tailored_resume_path
             
         except Exception as e:
             logger.error(f"Error tailoring resume: {str(e)}", exc_info=True)
             return resume_path  # Return original resume in case of error
     
+    def _basic_resume_tailoring(self, resume_data, job_description):
+        """
+        Create a basic tailored resume when AI is unavailable
+        
+        Args:
+            resume_data (dict): Parsed resume data
+            job_description (str): Job description text
+            
+        Returns:
+            str: Tailored resume content
+        """
+        try:
+            # Extract key information
+            raw_text = resume_data.get('raw_text', '')
+            
+            # Simple keyword matching for basic tailoring
+            job_keywords = self._extract_keywords(job_description)
+            sections = self._split_resume_sections(raw_text)
+            
+            # Modify the summary/objective section if it exists
+            if 'summary' in sections or 'objective' in sections:
+                section_key = 'summary' if 'summary' in sections else 'objective'
+                sections[section_key] = self._enhance_section_with_keywords(
+                    sections[section_key], job_keywords, is_summary=True
+                )
+            
+            # Modify the skills section if it exists
+            if 'skills' in sections:
+                sections['skills'] = self._enhance_section_with_keywords(
+                    sections['skills'], job_keywords
+                )
+            
+            # Rebuild the resume text
+            tailored_content = ""
+            for section, content in sections.items():
+                tailored_content += f"{section.upper()}\n{content}\n\n"
+            
+            return tailored_content
+        
+        except Exception as e:
+            logger.error(f"Error in basic resume tailoring: {str(e)}")
+            return resume_data.get('raw_text', '')
+            
+    def _extract_keywords(self, job_description):
+        """Extract key terms from job description"""
+        # List of common job requirement keywords
+        common_skill_indicators = [
+            'required', 'requirements', 'qualifications', 'skills', 
+            'proficient', 'experience with', 'knowledge of', 'familiar with',
+            'ability to', 'understanding of', 'expertise in'
+        ]
+        
+        # Split into lines and process
+        keywords = []
+        description_lower = job_description.lower()
+        
+        # Extract terms that follow skill indicators
+        for indicator in common_skill_indicators:
+            if indicator in description_lower:
+                parts = description_lower.split(indicator)
+                for part in parts[1:]:  # Skip the first part (before the indicator)
+                    # Take the next 10 words as potential keywords
+                    words = part.split()[:10]
+                    keywords.extend(words)
+        
+        # Clean up and deduplicate
+        cleaned_keywords = []
+        for word in keywords:
+            word = word.strip('.,;:()"\'')
+            if word and len(word) > 2 and word not in cleaned_keywords:
+                cleaned_keywords.append(word)
+                
+        return cleaned_keywords
+    
+    def _split_resume_sections(self, resume_text):
+        """Split resume into different sections"""
+        # Common section headers in resumes
+        section_headers = [
+            'summary', 'objective', 'experience', 'work experience', 
+            'employment', 'education', 'skills', 'qualifications',
+            'projects', 'certifications', 'awards', 'references'
+        ]
+        
+        # Initialize sections dict
+        sections = {}
+        current_section = 'header'  # Default for content before first section
+        sections[current_section] = ""
+        
+        # Split the resume into lines
+        lines = resume_text.split('\n')
+        
+        for line in lines:
+            line_lower = line.lower().strip()
+            
+            # Check if this line is a section header
+            is_header = False
+            for header in section_headers:
+                if header in line_lower and len(line_lower) < 50:  # Avoid matching text within paragraphs
+                    current_section = header
+                    sections[current_section] = ""
+                    is_header = True
+                    break
+            
+            # If not a header, add content to current section
+            if not is_header:
+                sections[current_section] += line + "\n"
+        
+        return sections
+    
+    def _enhance_section_with_keywords(self, section_text, keywords, is_summary=False):
+        """Enhance a section by incorporating job keywords"""
+        if is_summary:
+            # For summary, add a tailored sentence
+            relevant_keywords = [k for k in keywords if k not in section_text.lower()][:5]
+            if relevant_keywords:
+                tailored_sentence = f"Experienced professional with expertise in {', '.join(relevant_keywords)}.\n"
+                return tailored_sentence + section_text
+            return section_text
+        else:
+            # For other sections, just highlight existing matching skills
+            enhanced_text = section_text
+            for keyword in keywords:
+                if keyword in section_text.lower():
+                    # Find the line containing the keyword
+                    lines = section_text.split('\n')
+                    for i, line in enumerate(lines):
+                        if keyword in line.lower():
+                            # Add an asterisk to highlight this line if not already there
+                            if not line.strip().startswith('*'):
+                                lines[i] = "* " + line.strip()
+                    enhanced_text = '\n'.join(lines)
+            return enhanced_text
+            
     def match_job(self, resume_data, job_description):
         """
         Calculate how well a resume matches a job description

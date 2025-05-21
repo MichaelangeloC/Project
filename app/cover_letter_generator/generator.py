@@ -83,7 +83,10 @@ class CoverLetterGenerator:
             experience = resume_data.get('experience', [])
             raw_text = resume_data.get('raw_text', '')
             
-            # Use AI to generate cover letter content
+            # Check if Google Gemini API key is available
+            api_key = os.environ.get('GOOGLE_GEMINI_API_KEY') or config.get('GOOGLE_GEMINI_API_KEY')
+            
+            # Create a highly detailed prompt for the cover letter
             generate_prompt = f"""
             Generate a personalized cover letter for a job application based on the applicant's resume and the job details.
             
@@ -99,17 +102,45 @@ class CoverLetterGenerator:
             1. Be professionally formatted with today's date: {datetime.now().strftime('%B %d, %Y')}
             2. Address the hiring manager generically if no name is provided
             3. Express specific interest in this role and company (research the company if specific details are in the job description)
-            4. Highlight relevant skills and experience that match the job requirements
-            5. Include 2-3 specific achievements that demonstrate value
-            6. Show enthusiasm and explain why the applicant is a good fit
-            7. Have a polite closing paragraph
-            8. Be 300-400 words total (3-4 paragraphs)
-            
-            Use the applicant's name in the signature if available in the resume.
+            4. Highlight 4-5 relevant skills and experience that directly match the job requirements
+            5. Include 2-3 specific achievements with measurable results that demonstrate value
+            6. Show enthusiasm and explain precisely why the applicant is a good fit for this specific role
+            7. Have a confident, professional closing paragraph that includes a call to action
+            8. Be 350-450 words total (3-4 well-structured paragraphs)
+            9. Use professional language but avoid overly generic phrases and clichés
+            10. Include the applicant's contact information in the header
+
+            Use the applicant's name in the signature if available in the resume. Format the letter professionally
+            with proper spacing and alignment.
             """
             
-            # Generate cover letter content
-            cover_letter_content = generate_text(generate_prompt)
+            # Generate cover letter content with Google Gemini if available
+            if api_key:
+                try:
+                    # Setup Gemini
+                    import google.generativeai as genai
+                    genai.configure(api_key=api_key)
+                    
+                    # Create the model
+                    model = genai.GenerativeModel('gemini-pro')
+                    
+                    # Generate content
+                    response = model.generate_content(generate_prompt)
+                    cover_letter_content = response.text
+                    
+                    # Clean up the content if needed
+                    if "```" in cover_letter_content:
+                        cover_letter_content = cover_letter_content.replace("```", "").strip()
+                        
+                    logger.info("Successfully generated cover letter with Google Gemini")
+                except Exception as e:
+                    logger.error(f"Error using Google Gemini for cover letter: {str(e)}")
+                    # Fall back to basic AI helper
+                    cover_letter_content = generate_text(generate_prompt)
+            else:
+                # Use standard AI helper if Gemini not available
+                logger.warning("Google Gemini API key not available for cover letter generation")
+                cover_letter_content = generate_text(generate_prompt)
             
             if not cover_letter_content:
                 logger.warning("Failed to generate cover letter content")
