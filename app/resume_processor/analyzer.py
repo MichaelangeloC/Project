@@ -443,20 +443,25 @@ class ResumeAnalyzer:
             
             # Combine NLP and AI analysis for comprehensive results
             if ai_insights:
-                logger.info(f"Resume match evaluation completed with score: {match_evaluation.get('score', 0)}")
+                logger.info(f"Resume match evaluation completed with NLP score: {match_percentage}%")
                 return {
-                    'score': match_evaluation.get('score', 0),
-                    'matching_keywords': match_evaluation.get('matching_keywords', []),
-                    'missing_keywords': match_evaluation.get('missing_keywords', []),
-                    'explanation': match_evaluation.get('explanation', '')
+                    'score': match_percentage,  # Use the NLP match percentage as the score
+                    'matching_skills': matching_skills,
+                    'missing_skills': missing_skills,
+                    'categories': category_breakdown,
+                    'qualitative_assessment': ai_insights.get('qualitative_assessment', ''),
+                    'suggestions': ai_insights.get('suggestions', []),
+                    'explanation': ai_insights.get('explanation', '')
                 }
             else:
-                logger.warning("Match evaluation failed, returning basic match")
+                # Use NLP results without AI enhancement
+                logger.warning("AI evaluation failed, returning NLP match analysis only")
                 return {
-                    'score': 50,  # Default middle score
-                    'matching_keywords': [],
-                    'missing_keywords': [],
-                    'explanation': 'Failed to generate detailed match evaluation'
+                    'score': match_percentage,
+                    'matching_skills': matching_skills,
+                    'missing_skills': missing_skills,
+                    'categories': category_breakdown,
+                    'explanation': f'NLP-based skill matching with {match_percentage}% skill overlap'
                 }
                 
         except Exception as e:

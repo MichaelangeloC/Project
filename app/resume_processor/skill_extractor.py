@@ -25,6 +25,7 @@ try:
     logger.info("Loaded spaCy en_core_web_sm model")
 except Exception as e:
     logger.error(f"Error loading spaCy model: {str(e)}")
+    logger.warning("Will use basic pattern matching for skill extraction")
     nlp = None
 
 # Initialize NLTK components
@@ -127,7 +128,7 @@ class SkillExtractor:
         skills = self._extract_skills_with_patterns(preprocessed_text)
         
         # Extract skills using spaCy NER and POS tagging if available
-        if self.nlp:
+        if self.nlp is not None:
             spacy_skills = self._extract_skills_with_spacy(text)
             
             # Merge skills from both methods
@@ -223,38 +224,48 @@ class SkillExtractor:
         Returns:
             dict: Dictionary of skill categories and extracted skills
         """
+        if self.nlp is None:
+            logger.warning("SpaCy model not available for skill extraction")
+            return {
+                "technical_terms": [],
+                "tools_and_technologies": []
+            }
+            
         skills = {
             "technical_terms": [],
             "tools_and_technologies": []
         }
         
-        # Process the text with spaCy
-        doc = self.nlp(text)
-        
-        # Extract named entities that might be skills
-        for ent in doc.ents:
-            if ent.label_ in ["ORG", "PRODUCT"]:
-                skills["tools_and_technologies"].append(ent.text.lower())
-        
-        # Extract noun phrases as potential technical terms
-        for chunk in doc.noun_chunks:
-            # Skip very short phrases
-            if len(chunk.text.split()) > 1:
-                skills["technical_terms"].append(chunk.text.lower())
-        
-        # Filter and clean up extracted skills
-        for category in skills:
-            # Remove duplicates
-            skills[category] = list(set(skills[category]))
+        try:
+            # Process the text with spaCy
+            doc = self.nlp(text)
             
-            # Filter out very common terms that aren't skills
-            skills[category] = [
-                s for s in skills[category] 
-                if len(s) > 3 and s not in [
-                    "the company", "the job", "the role", "the position", 
-                    "the team", "the project", "the work", "the experience"
+            # Extract named entities that might be skills
+            for ent in doc.ents:
+                if ent.label_ in ["ORG", "PRODUCT"]:
+                    skills["tools_and_technologies"].append(ent.text.lower())
+            
+            # Extract noun phrases as potential technical terms
+            for chunk in doc.noun_chunks:
+                # Skip very short phrases
+                if len(chunk.text.split()) > 1:
+                    skills["technical_terms"].append(chunk.text.lower())
+            
+            # Filter and clean up extracted skills
+            for category in skills:
+                # Remove duplicates
+                skills[category] = list(set(skills[category]))
+                
+                # Filter out very common terms that aren't skills
+                skills[category] = [
+                    s for s in skills[category] 
+                    if len(s) > 3 and s not in [
+                        "the company", "the job", "the role", "the position", 
+                        "the team", "the project", "the work", "the experience"
+                    ]
                 ]
-            ]
+        except Exception as e:
+            logger.error(f"Error in spaCy skill extraction: {str(e)}")
         
         return skills
     
